@@ -1,4 +1,4 @@
-"""Segment-level planning that never changes upstream rally boundaries."""
+"""Deterministic outer-window planning over upstream segment boundaries."""
 
 from __future__ import annotations
 

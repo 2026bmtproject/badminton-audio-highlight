@@ -27,7 +27,7 @@ class YamNetModel(Protocol):
 
 
 class YamNetAudioInput(Protocol):
-    """Waveform contract shared by inference windows and training slices."""
+    """Waveform contract shared by inference windows and feature slices."""
 
     start_sec: float
     end_sec: float

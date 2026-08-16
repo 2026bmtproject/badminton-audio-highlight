@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from audio_highlight.contracts import Segment, SegmentsArtifact, load_segments_artifact
-from audio_highlight.orchestration import (
+from audio_highlight.windows import (
     AnalysisWindow,
     InferenceConfig,
     build_analysis_spans,

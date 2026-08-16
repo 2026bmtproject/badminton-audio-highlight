@@ -12,4 +12,4 @@ build/
 *.f32le
 *.f32le.json
 local_data/
-features/
+artifacts/

@@ -15,7 +15,7 @@ from audio_highlight.audio import (
     NormalizedAudioSource,
     timestamp_to_sample_index,
 )
-from audio_highlight.orchestration import AnalysisWindow
+from audio_highlight.windows import AnalysisWindow
 
 SAMPLE_RATE = 16_000
 

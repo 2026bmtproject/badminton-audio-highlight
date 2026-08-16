@@ -16,7 +16,7 @@ from typing import Protocol
 import numpy as np
 from numpy.typing import NDArray
 
-from audio_highlight.orchestration import AnalysisWindow
+from audio_highlight.windows import AnalysisWindow
 
 YAMNET_SAMPLE_RATE_HZ = 16_000
 MONO_CHANNELS = 1
