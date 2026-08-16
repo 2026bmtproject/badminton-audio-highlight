@@ -1,0 +1,26 @@
+{
+  "segments": [
+    {
+      "start_frame": 11587,
+      "end_frame": 11619,
+      "start_sec": 386.233,
+      "end_sec": 387.3,
+      "duration_sec": 1.067
+    },
+    {
+      "start_frame": 11743,
+      "end_frame": 12130,
+      "start_sec": 391.433,
+      "end_sec": 404.333,
+      "duration_sec": 12.9
+    },
+    {
+      "start_frame": 12340,
+      "end_frame": 12844,
+      "start_sec": 411.333,
+      "end_sec": 428.133,
+      "duration_sec": 16.8
+    }
+  ],
+  "fps": 30.0
+}

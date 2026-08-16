@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from decimal import Decimal
 
 from audio_highlight.contracts import SegmentsArtifact
 
@@ -39,6 +40,21 @@ class SegmentAnalysisSpan:
     analysis_end_sec: float
 
 
+@dataclass(frozen=True, slots=True)
+class AnalysisWindow:
+    """One complete outer analysis window in absolute match timestamps."""
+
+    segment_index: int
+    start_sec: float
+    end_sec: float
+
+
+def _decimal(value: float) -> Decimal:
+    """Preserve the user-facing decimal value instead of accumulating float error."""
+
+    return Decimal(str(value))
+
+
 def build_analysis_spans(
     artifact: SegmentsArtifact,
     config: InferenceConfig | None = None,
@@ -51,23 +67,64 @@ def build_analysis_spans(
     if media_duration_sec is not None:
         if not math.isfinite(media_duration_sec) or media_duration_sec < 0:
             raise ValueError("media_duration_sec must be non-negative and finite")
-        latest_segment_end = max(segment.end_sec for segment in artifact.segments)
-        if media_duration_sec < latest_segment_end:
-            raise ValueError("media_duration_sec precedes an upstream segment end")
 
     spans: list[SegmentAnalysisSpan] = []
     for indexed in artifact.indexed_segments:
         segment = indexed.segment
-        analysis_end = segment.end_sec + settings.post_padding_sec
+        analysis_end = _decimal(segment.end_sec) + _decimal(settings.post_padding_sec)
         if media_duration_sec is not None:
-            analysis_end = min(analysis_end, media_duration_sec)
+            analysis_end = min(analysis_end, _decimal(media_duration_sec))
         spans.append(
             SegmentAnalysisSpan(
                 segment_index=indexed.segment_index,
                 segment_start_sec=segment.start_sec,
                 segment_end_sec=segment.end_sec,
                 analysis_start_sec=segment.start_sec,
-                analysis_end_sec=analysis_end,
+                analysis_end_sec=float(analysis_end),
             )
         )
     return tuple(spans)
+
+
+def build_analysis_windows(
+    artifact: SegmentsArtifact,
+    config: InferenceConfig | None = None,
+    *,
+    media_duration_sec: float | None = None,
+) -> tuple[AnalysisWindow, ...]:
+    """Split every padded segment span into complete absolute-time windows.
+
+    Windows start at ``analysis_start_sec + n * hop_sec``. A window is included
+    exactly when its full end timestamp is no later than ``analysis_end_sec``.
+    Trailing partial windows are discarded, and windows belonging to neighboring
+    segments may overlap.
+    """
+
+    settings = config or InferenceConfig()
+    window_size = _decimal(settings.window_sec)
+    hop_size = _decimal(settings.hop_sec)
+    windows: list[AnalysisWindow] = []
+
+    for span in build_analysis_spans(
+        artifact,
+        settings,
+        media_duration_sec=media_duration_sec,
+    ):
+        analysis_start = _decimal(span.analysis_start_sec)
+        analysis_end = _decimal(span.analysis_end_sec)
+        last_full_start = analysis_end - window_size
+        if last_full_start < analysis_start:
+            continue
+
+        window_count = int((last_full_start - analysis_start) // hop_size) + 1
+        for window_index in range(window_count):
+            start = analysis_start + window_index * hop_size
+            windows.append(
+                AnalysisWindow(
+                    segment_index=span.segment_index,
+                    start_sec=float(start),
+                    end_sec=float(start + window_size),
+                )
+            )
+
+    return tuple(windows)

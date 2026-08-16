@@ -9,12 +9,15 @@ from audio_highlight.contracts import (
     load_segments_artifact,
 )
 from audio_highlight.orchestration import (
+    AnalysisWindow,
     InferenceConfig,
     SegmentAnalysisSpan,
     build_analysis_spans,
+    build_analysis_windows,
 )
 
 __all__ = [
+    "AnalysisWindow",
     "Highlight",
     "HighlightsArtifact",
     "IndexedSegment",
@@ -23,6 +26,7 @@ __all__ = [
     "SegmentAnalysisSpan",
     "SegmentsArtifact",
     "build_analysis_spans",
+    "build_analysis_windows",
     "load_segments_artifact",
 ]
 
