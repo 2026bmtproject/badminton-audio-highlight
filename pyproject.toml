@@ -1,7 +1,26 @@
 [project]
 name = "badminton-audio-highlight"
 version = "0.1.0"
-description = "Add your description here"
+description = "Reusable YAMNet-based cheer detection for badminton rally segments"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = []
+
+[project.scripts]
+audio-highlight = "audio_highlight.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/audio_highlight"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
