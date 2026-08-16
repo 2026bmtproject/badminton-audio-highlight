@@ -22,11 +22,18 @@ from audio_highlight.orchestration import (
     build_analysis_spans,
     build_analysis_windows,
 )
+from audio_highlight.yamnet import (
+    EmbeddedWindow,
+    YamNetEmbeddingExtractor,
+    YamNetError,
+    mean_pool_embeddings,
+)
 
 __all__ = [
     "AnalysisWindow",
     "AudioRangeError",
     "AudioWindow",
+    "EmbeddedWindow",
     "FFmpegAudioNormalizer",
     "Highlight",
     "HighlightsArtifact",
@@ -36,9 +43,12 @@ __all__ = [
     "Segment",
     "SegmentAnalysisSpan",
     "SegmentsArtifact",
+    "YamNetEmbeddingExtractor",
+    "YamNetError",
     "build_analysis_spans",
     "build_analysis_windows",
     "load_segments_artifact",
+    "mean_pool_embeddings",
     "timestamp_to_sample_index",
 ]
 

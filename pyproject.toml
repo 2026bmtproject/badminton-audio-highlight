@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "numpy>=2.5.2",
+    "setuptools<82",
+    "tensorflow>=2.21.0",
+    "tensorflow-hub>=0.16.1",
 ]
 
 [project.scripts]

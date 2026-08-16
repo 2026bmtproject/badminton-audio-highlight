@@ -58,15 +58,15 @@ YAMNet 內部的 audio patching 混淆。提供給 YAMNet 的 audio 必須是 16
   classifier 的 typed interfaces。
 - 使用 FFmpeg 一次建立可重建的 16 kHz mono float32 audio cache，並依 absolute
   match timestamps 對多個 `AnalysisWindow` 進行 random-access waveform slicing。
+- 使用 TensorFlow Hub 官方 pretrained YAMNet，將每個既有 `AudioWindow` 的 internal
+  patch embeddings 以 mean pooling 彙整為固定 `(1024,)` 的 `EmbeddedWindow`。
 - 使用絕對 match timestamp 的 post-padding analysis span 規劃。
 - upstream-compatible `highlights.json` output schema。
 - `validate-segments` CLI、training / evaluation schemas 與 pytest infrastructure。
 
 目前尚未實作：
 
-- YAMNet inference。
 - Logistic Regression training 與實際 classifier inference。
-- model download 與 model loading。
 
 本 repository 不會加入額外的 CNN 或其他 ML model。
 
@@ -80,4 +80,10 @@ FFmpeg executable。正規化後的 `*.f32le` audio cache 是可重建的衍生�
 uv sync --dev
 uv run pytest
 uv run audio-highlight validate-segments path/to/segments.json
+```
+
+真正的 YAMNet smoke test 是手動操作，可能由 TensorFlow Hub 下載並快取 model：
+
+```console
+uv run audio-highlight smoke-test-yamnet
 ```

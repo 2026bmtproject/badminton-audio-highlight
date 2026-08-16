@@ -1,5 +1,6 @@
 .venv/
 .uv-cache/
+.tfhub-cache/
 __pycache__/
 *.py[cod]
 .pytest_cache/
