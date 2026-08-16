@@ -56,6 +56,8 @@ YAMNet 內部的 audio patching 混淆。提供給 YAMNet 的 audio 必須是 16
 - 以 array position 建立 `segment_index`。
 - 16 kHz mono audio extraction、YAMNet embedding extraction 與 Logistic Regression
   classifier 的 typed interfaces。
+- 使用 FFmpeg 一次建立可重建的 16 kHz mono float32 audio cache，並依 absolute
+  match timestamps 對多個 `AnalysisWindow` 進行 random-access waveform slicing。
 - 使用絕對 match timestamp 的 post-padding analysis span 規劃。
 - upstream-compatible `highlights.json` output schema。
 - `validate-segments` CLI、training / evaluation schemas 與 pytest infrastructure。
@@ -65,13 +67,14 @@ YAMNet 內部的 audio patching 混淆。提供給 YAMNet 的 audio 必須是 16
 - YAMNet inference。
 - Logistic Regression training 與實際 classifier inference。
 - model download 與 model loading。
-- 實際 audio decoder / extraction backend。
 
 本 repository 不會加入額外的 CNN 或其他 ML model。
 
 ## 開發與執行
 
-需要 Python `>=3.12,<3.13` 與 [uv](https://docs.astral.sh/uv/)。
+需要 Python `>=3.12,<3.13`、[uv](https://docs.astral.sh/uv/) 與可由 `PATH` 找到的
+FFmpeg executable。正規化後的 `*.f32le` audio cache 是可重建的衍生資料，不應提交
+至 Git。
 
 ```console
 uv sync --dev

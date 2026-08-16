@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Reusable YAMNet-based cheer detection for badminton rally segments"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "numpy>=2.5.2",
+]
 
 [project.scripts]
 audio-highlight = "audio_highlight.cli:main"

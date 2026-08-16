@@ -8,3 +8,5 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+*.f32le
+*.f32le.json

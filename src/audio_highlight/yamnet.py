@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from audio_highlight.audio import AudioClip
+from audio_highlight.audio import AudioWindow
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +26,6 @@ class YamNetEmbeddingExtractor(Protocol):
     must not be treated as replacements for outer window planning.
     """
 
-    def extract(self, clip: AudioClip) -> Sequence[TimedEmbedding]:
+    def extract(self, clip: AudioWindow) -> Sequence[TimedEmbedding]:
         """Return YAMNet embeddings with timestamps anchored to ``clip.start_sec``."""
         ...
