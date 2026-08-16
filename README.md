@@ -103,6 +103,40 @@ uv run audio-highlight evaluate `
   --output-dir artifacts/cross_match/evaluation
 ```
 
+## Detector baseline
+
+Current frozen detector baseline：`yamnet_mean_lr_v1`。
+
+它固定使用官方 YAMNet、3 秒 waveform、YAMNet patch embeddings 的 mean pooling、1024-dimensional embeddings，以及 training-fold `StandardScaler` 加 `LogisticRegression(C=1.0, solver="lbfgs", max_iter=2000, class_weight=None)`。Prediction threshold 固定為 `0.5`，evaluation protocol 為 Leave-One-Match-Out。
+
+Machine-readable configuration 位於：
+
+```text
+artifacts/baselines/yamnet_mean_lr_v1.json
+```
+
+此 JSON 只保存 frozen configuration，不包含 sklearn pickle 或 fitted model。
+
+## Calibration diagnostic
+
+Calibration diagnostic 只讀取既有 out-of-fold predictions，不重新訓練 classifier、不重新載入 YAMNet、不重建 embeddings，也不搜尋或修改 threshold：
+
+```powershell
+uv run audio-highlight diagnose-calibration
+```
+
+亦可明確指定路徑：
+
+```powershell
+uv run audio-highlight diagnose-calibration `
+  --predictions artifacts/cross_match/evaluation/cross_match_predictions.csv `
+  --output-dir artifacts/cross_match/evaluation/calibration
+```
+
+輸出包含每場 match 的 probability distribution、10-bin uniform reliability diagram、Brier score、log loss、ECE、ROC-AUC 與 average precision，以及跨 match reliability comparison。
+
+ROC-AUC 與 average precision 描述 ranking/discrimination；Brier score、log loss 與 reliability diagram 描述 probability quality 與 calibration-sensitive behavior。這些結果只用於診斷，現行 threshold 仍固定為 `0.5`，不會進行 Platt scaling、isotonic regression、temperature scaling 或 threshold optimization。
+
 ## 其他指令
 
 ```powershell

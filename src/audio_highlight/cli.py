@@ -56,6 +56,20 @@ def build_parser() -> argparse.ArgumentParser:
         default="artifacts/evaluation",
         help="evaluation artifact directory",
     )
+    calibration = subparsers.add_parser(
+        "diagnose-calibration",
+        help="describe calibration and score distributions from existing OOF predictions",
+    )
+    calibration.add_argument(
+        "--predictions",
+        default="artifacts/cross_match/evaluation/cross_match_predictions.csv",
+        help="existing cross-match OOF predictions CSV",
+    )
+    calibration.add_argument(
+        "--output-dir",
+        default="artifacts/cross_match/evaluation/calibration",
+        help="calibration diagnostic artifact directory",
+    )
     return parser
 
 
@@ -159,6 +173,37 @@ def run(argv: Sequence[str] | None = None) -> int:
             print(f"{name}={'undefined' if value is None else f'{value:.6f}'}")
         print(f"predictions_csv={artifacts.predictions_csv}")
         print(f"metrics_json={artifacts.metrics_json}")
+        return 0
+
+    if args.command == "diagnose-calibration":
+        from audio_highlight.baseline import write_baseline_metadata
+        from audio_highlight.calibration import (
+            CalibrationError,
+            diagnose_calibration,
+            load_predictions,
+            write_calibration_artifacts,
+        )
+
+        try:
+            records = load_predictions(args.predictions)
+            result = diagnose_calibration(records)
+            artifacts = write_calibration_artifacts(result, args.output_dir)
+            baseline_path = write_baseline_metadata()
+        except (CalibrationError, OSError) as exc:
+            print(f"calibration diagnostic failed: {exc}")
+            return 2
+        for item in result.matches:
+            print(f"match={item.match_id}")
+            print(f"sample_count={item.sample_count}")
+            print(f"prevalence={item.prevalence:.6f}")
+            print(f"predicted_positive_rate={item.predicted_positive_rate:.6f}")
+            print(f"brier_score={item.brier_score:.6f}")
+            print(f"log_loss={item.log_loss:.6f}")
+            print(f"ece={item.ece:.6f}")
+        print(f"baseline_metadata={baseline_path}")
+        print(f"calibration_metrics={artifacts.metrics_json}")
+        print(f"calibration_summary={artifacts.summary_csv}")
+        print(f"combined_reliability={artifacts.combined_reliability_plot}")
         return 0
 
     raise AssertionError(f"unhandled command: {args.command}")

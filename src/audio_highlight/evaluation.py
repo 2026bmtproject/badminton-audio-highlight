@@ -23,6 +23,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from audio_highlight.baseline import BASELINE_ID
 from audio_highlight.classifier import (
     LOGISTIC_REGRESSION_C,
     LOGISTIC_REGRESSION_MAX_ITER,
@@ -286,6 +287,7 @@ def _metrics_dict(metrics: BinaryClassificationMetrics) -> dict[str, Any]:
 def _summary_dict(result: EvaluationResult) -> dict[str, Any]:
     return {
         "model": {
+            "baseline_id": BASELINE_ID,
             "type": "logistic_regression",
             "C": LOGISTIC_REGRESSION_C,
             "max_iter": LOGISTIC_REGRESSION_MAX_ITER,

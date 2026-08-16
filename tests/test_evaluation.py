@@ -228,6 +228,7 @@ def test_prediction_csv_and_metrics_json_round_trip(tmp_path: Path) -> None:
     assert rows[0]["segment_index"] == "100"
     assert 0.0 <= float(rows[0]["positive_probability"]) <= 1.0
     assert summary["model"] == {
+        "baseline_id": "yamnet_mean_lr_v1",
         "type": "logistic_regression",
         "C": 1.0,
         "max_iter": 2000,
