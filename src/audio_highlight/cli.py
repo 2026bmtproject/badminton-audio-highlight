@@ -70,6 +70,30 @@ def build_parser() -> argparse.ArgumentParser:
         default="artifacts/cross_match/evaluation/calibration",
         help="calibration diagnostic artifact directory",
     )
+    train_model = subparsers.add_parser(
+        "train-model",
+        help="fit and export the frozen detector from all supplied clean features",
+    )
+    train_model.add_argument(
+        "features",
+        nargs="*",
+        help="canonical per-match NPZ feature datasets",
+    )
+    train_model.add_argument(
+        "--matches",
+        nargs="+",
+        help="match IDs resolved as artifacts/<match_id>/features/features.npz",
+    )
+    train_model.add_argument(
+        "--baseline-id",
+        default="yamnet_mean_lr_v1",
+        help="frozen baseline identity",
+    )
+    train_model.add_argument(
+        "--output-dir",
+        type=Path,
+        help="model artifact directory (default: artifacts/models/<baseline-id>)",
+    )
     return parser
 
 
@@ -204,6 +228,61 @@ def run(argv: Sequence[str] | None = None) -> int:
         print(f"calibration_metrics={artifacts.metrics_json}")
         print(f"calibration_summary={artifacts.summary_csv}")
         print(f"combined_reliability={artifacts.combined_reliability_plot}")
+        return 0
+
+    if args.command == "train-model":
+        from audio_highlight.classifier import ModelArtifactError
+        from audio_highlight.dataset import DatasetError
+        from audio_highlight.model_export import (
+            ModelTrainingError,
+            train_and_export_model,
+        )
+
+        if bool(args.features) == bool(args.matches):
+            print(
+                "model training failed: supply either explicit feature paths or "
+                "--matches, but not both"
+            )
+            return 2
+        feature_paths = (
+            args.features
+            if args.features
+            else [
+                Path("artifacts") / match_id / "features" / "features.npz"
+                for match_id in args.matches
+            ]
+        )
+        output_dir = args.output_dir or (
+            Path("artifacts") / "models" / args.baseline_id
+        )
+        try:
+            result = train_and_export_model(
+                feature_paths,
+                baseline_id=args.baseline_id,
+                output_dir=output_dir,
+            )
+        except (
+            DatasetError,
+            ModelArtifactError,
+            ModelTrainingError,
+            OSError,
+        ) as exc:
+            print(f"model training failed: {exc}")
+            return 2
+        print(f"baseline_id={result.baseline_id}")
+        print(f"training_matches={','.join(result.training_matches)}")
+        print(f"sample_count={result.sample_count}")
+        print(f"positive_count={result.positive_count}")
+        print(f"negative_count={result.negative_count}")
+        print(f"embedding_dimension={result.embedding_dimension}")
+        print(f"converged={result.converged}")
+        print(f"iterations={result.iterations}")
+        print(f"model_path={result.model_path}")
+        print(f"metadata_path={result.metadata_path}")
+        print(f"model_sha256={result.model_sha256}")
+        print(f"model_size_bytes={result.model_size_bytes}")
+        print(f"max_probability_difference={result.max_probability_difference:.17g}")
+        print(f"binary_predictions_equal={result.binary_predictions_equal}")
         return 0
 
     raise AssertionError(f"unhandled command: {args.command}")

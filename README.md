@@ -117,6 +117,28 @@ artifacts/baselines/yamnet_mean_lr_v1.json
 
 此 JSON 只保存 frozen configuration，不包含 sklearn pickle 或 fitted model。
 
+## Final model training / export
+
+使用全部指定的 clean feature datasets，依 frozen baseline 設定 fit 一個 deployment instance：
+
+```powershell
+uv run audio-highlight train-model `
+  --matches match_001 match_002 match_003 match_004 `
+  --baseline-id yamnet_mean_lr_v1
+```
+
+亦可將 `--matches` 改為逐一提供 `features.npz` 路徑，並用 `--output-dir` 指定輸出位置。預設輸出為：
+
+```text
+artifacts/models/yamnet_mean_lr_v1/
+├── model.npz
+└── metadata.json
+```
+
+`model.npz` 僅包含 `StandardScaler` 與 Logistic Regression 的 numeric arrays，loader 以 `allow_pickle=False` 載入；部署推論使用 NumPy 手動計算，不需反序列化 sklearn estimator。`metadata.json` 保存 frozen configuration、training dataset identity、版本與 SHA-256。
+
+這個 final detector 是使用目前所有 clean data 訓練的 deployment instance，不是新的 test evaluation。模型品質的正式 checkpoint 仍是既有的 4-match LOMO 結果；不得把 final fit 的 training-set 表現解讀為 test performance。實驗紀錄見 [`docs/experiments/yamnet_mean_lr_v1.md`](docs/experiments/yamnet_mean_lr_v1.md)。
+
 ## Calibration diagnostic
 
 Calibration diagnostic 只讀取既有 out-of-fold predictions，不重新訓練 classifier、不重新載入 YAMNet、不重建 embeddings，也不搜尋或修改 threshold：

@@ -9,6 +9,7 @@ from typing import Any
 
 from audio_highlight.audio import YAMNET_SAMPLE_RATE_HZ
 from audio_highlight.classifier import (
+    BASELINE_ID,
     LOGISTIC_REGRESSION_C,
     LOGISTIC_REGRESSION_MAX_ITER,
     PREDICTION_THRESHOLD,
@@ -16,7 +17,6 @@ from audio_highlight.classifier import (
 from audio_highlight.windows import InferenceConfig
 from audio_highlight.yamnet import YAMNET_EMBEDDING_SIZE, YAMNET_MODEL_HANDLE
 
-BASELINE_ID = "yamnet_mean_lr_v1"
 DEFAULT_BASELINE_PATH = Path("artifacts/baselines") / f"{BASELINE_ID}.json"
 
 
