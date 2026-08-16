@@ -11,3 +11,5 @@ build/
 *.egg-info/
 *.f32le
 *.f32le.json
+local_data/
+features/

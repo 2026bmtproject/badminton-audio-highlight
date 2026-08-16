@@ -60,6 +60,8 @@ YAMNet 內部的 audio patching 混淆。提供給 YAMNet 的 audio 必須是 16
   match timestamps 對多個 `AnalysisWindow` 進行 random-access waveform slicing。
 - 使用 TensorFlow Hub 官方 pretrained YAMNet，將每個既有 `AudioWindow` 的 internal
   patch embeddings 以 mean pooling 彙整為固定 `(1024,)` 的 `EmbeddedWindow`。
+- 依 historical CSV 的 absolute `window_start_sec` / `window_end_sec` 匯入 reviewed
+  training labels，並建立每場 match 一個安全、可重建的 YAMNet feature NPZ。
 - 使用絕對 match timestamp 的 post-padding analysis span 規劃。
 - upstream-compatible `highlights.json` output schema。
 - `validate-segments` CLI、training / evaluation schemas 與 pytest infrastructure。
@@ -87,3 +89,18 @@ uv run audio-highlight validate-segments path/to/segments.json
 ```console
 uv run audio-highlight smoke-test-yamnet
 ```
+
+Training feature build 直接從完整 match video 依 CSV absolute timestamps 切 audio；
+`segment_id` 僅保存為 `source_segment_id`，不會與 inference `segment_index` 對齊，
+也不會讀取 legacy `wav_path` 或 upstream `segments.json`：
+
+```console
+uv run audio-highlight build-features \
+  --match-id match_002 \
+  --video local_data/match_002/match.mp4 \
+  --labels local_data/match_002/labels/cheer_labels.csv \
+  --output features/match_002.npz
+```
+
+`local_data/` 與 `features/` 都不提交 Git；前者保存本機 source data，後者是可重建的
+generated feature artifact。

@@ -26,6 +26,16 @@ class YamNetModel(Protocol):
         ...
 
 
+class YamNetAudioInput(Protocol):
+    """Waveform contract shared by inference windows and training slices."""
+
+    start_sec: float
+    end_sec: float
+    sample_rate_hz: int
+    channels: int
+    samples: NDArray[np.float32]
+
+
 @dataclass(frozen=True, slots=True)
 class EmbeddedWindow:
     """One mean-pooled YAMNet embedding tied to an inference window."""
@@ -90,7 +100,7 @@ def mean_pool_embeddings(value: object) -> NDArray[np.float32]:
     return pooled
 
 
-def _validate_audio_window(window: AudioWindow) -> NDArray[np.float32]:
+def _validate_audio_window(window: YamNetAudioInput) -> NDArray[np.float32]:
     if window.sample_rate_hz != YAMNET_SAMPLE_RATE_HZ:
         raise YamNetError(f"YAMNet input must be {YAMNET_SAMPLE_RATE_HZ} Hz")
     if window.channels != MONO_CHANNELS:
@@ -141,7 +151,7 @@ class YamNetEmbeddingExtractor:
             self._model = model
             self._tensorflow = None
 
-    def extract_raw(self, window: AudioWindow) -> NDArray[np.float32]:
+    def extract_raw(self, window: YamNetAudioInput) -> NDArray[np.float32]:
         """Run one existing outer window and return YAMNet's internal patch matrix."""
 
         waveform = _validate_audio_window(window)
@@ -159,10 +169,15 @@ class YamNetEmbeddingExtractor:
             ) from exc
         return validate_raw_embeddings(raw_embeddings)
 
+    def embed(self, window: YamNetAudioInput) -> NDArray[np.float32]:
+        """Return only the identity-neutral mean-pooled waveform embedding."""
+
+        return mean_pool_embeddings(self.extract_raw(window))
+
     def extract(self, window: AudioWindow) -> EmbeddedWindow:
         """Return the fixed-size mean-pooled embedding for one outer window."""
 
-        embedding = mean_pool_embeddings(self.extract_raw(window))
+        embedding = self.embed(window)
         return EmbeddedWindow(
             segment_index=window.segment_index,
             start_sec=window.start_sec,

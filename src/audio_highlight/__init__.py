@@ -2,6 +2,7 @@
 
 from audio_highlight.audio import (
     AudioRangeError,
+    AudioSlice,
     AudioWindow,
     FFmpegAudioNormalizer,
     NormalizedAudioSource,
@@ -22,6 +23,15 @@ from audio_highlight.orchestration import (
     build_analysis_spans,
     build_analysis_windows,
 )
+from audio_highlight.training import (
+    FeatureBuildResult,
+    FeatureDataset,
+    ImportedLabels,
+    LabeledWindow,
+    TrainingDataError,
+    build_feature_dataset,
+    import_cheer_labels,
+)
 from audio_highlight.yamnet import (
     EmbeddedWindow,
     YamNetEmbeddingExtractor,
@@ -32,21 +42,29 @@ from audio_highlight.yamnet import (
 __all__ = [
     "AnalysisWindow",
     "AudioRangeError",
+    "AudioSlice",
     "AudioWindow",
     "EmbeddedWindow",
     "FFmpegAudioNormalizer",
+    "FeatureBuildResult",
+    "FeatureDataset",
     "Highlight",
     "HighlightsArtifact",
     "IndexedSegment",
     "InferenceConfig",
+    "ImportedLabels",
+    "LabeledWindow",
     "NormalizedAudioSource",
     "Segment",
     "SegmentAnalysisSpan",
     "SegmentsArtifact",
+    "TrainingDataError",
     "YamNetEmbeddingExtractor",
     "YamNetError",
     "build_analysis_spans",
     "build_analysis_windows",
+    "build_feature_dataset",
+    "import_cheer_labels",
     "load_segments_artifact",
     "mean_pool_embeddings",
     "timestamp_to_sample_index",

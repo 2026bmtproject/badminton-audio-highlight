@@ -66,12 +66,53 @@ def timestamp_to_sample_index(
     )
 
 
-def _window_sample_count(window: AnalysisWindow, sample_rate_hz: int) -> int:
-    start = _decimal_seconds(window.start_sec, "window.start_sec")
-    end = _decimal_seconds(window.end_sec, "window.end_sec")
+def _range_sample_count(start_sec: float, end_sec: float, sample_rate_hz: int) -> int:
+    start = _decimal_seconds(start_sec, "start_sec")
+    end = _decimal_seconds(end_sec, "end_sec")
     if end <= start:
-        raise ValueError("window.end_sec must be later than window.start_sec")
+        raise ValueError("end_sec must be later than start_sec")
     return _round_samples(end - start, sample_rate_hz)
+
+
+def _validate_waveform(
+    start_sec: float,
+    end_sec: float,
+    sample_rate_hz: int,
+    channels: int,
+    samples: NDArray[np.float32],
+) -> None:
+    expected_count = _range_sample_count(start_sec, end_sec, sample_rate_hz)
+    if sample_rate_hz != YAMNET_SAMPLE_RATE_HZ:
+        raise ValueError(f"audio must be {YAMNET_SAMPLE_RATE_HZ} Hz")
+    if channels != MONO_CHANNELS:
+        raise ValueError("audio must be mono")
+    if samples.ndim != 1 or samples.dtype != np.float32:
+        raise ValueError("samples must be a one-dimensional float32 waveform")
+    if samples.size != expected_count:
+        raise ValueError(
+            f"samples has {samples.size} values; expected {expected_count} "
+            "for the declared timestamps"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AudioSlice:
+    """Identity-neutral waveform slice addressed only by absolute match time."""
+
+    start_sec: float
+    end_sec: float
+    sample_rate_hz: int
+    channels: int
+    samples: NDArray[np.float32]
+
+    def __post_init__(self) -> None:
+        _validate_waveform(
+            self.start_sec,
+            self.end_sec,
+            self.sample_rate_hz,
+            self.channels,
+            self.samples,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,22 +129,13 @@ class AudioWindow:
     def __post_init__(self) -> None:
         if self.segment_index < 0:
             raise ValueError("segment_index must be non-negative")
-        start = _decimal_seconds(self.start_sec, "start_sec")
-        end = _decimal_seconds(self.end_sec, "end_sec")
-        if end <= start:
-            raise ValueError("end_sec must be later than start_sec")
-        if self.sample_rate_hz != YAMNET_SAMPLE_RATE_HZ:
-            raise ValueError(f"audio must be {YAMNET_SAMPLE_RATE_HZ} Hz")
-        if self.channels != MONO_CHANNELS:
-            raise ValueError("audio must be mono")
-        if self.samples.ndim != 1 or self.samples.dtype != np.float32:
-            raise ValueError("samples must be a one-dimensional float32 waveform")
-        expected_count = _round_samples(end - start, self.sample_rate_hz)
-        if self.samples.size != expected_count:
-            raise ValueError(
-                f"samples has {self.samples.size} values; expected {expected_count} "
-                "for the declared timestamps"
-            )
+        _validate_waveform(
+            self.start_sec,
+            self.end_sec,
+            self.sample_rate_hz,
+            self.channels,
+            self.samples,
+        )
 
 
 class NormalizedAudioSource:
@@ -132,11 +164,13 @@ class NormalizedAudioSource:
     def duration_sec(self) -> float:
         return self.sample_count / self.sample_rate_hz
 
-    def slice_window(self, window: AnalysisWindow) -> AudioWindow:
-        """Read exactly one planned window; never pad or return partial audio."""
-
-        start_sample = timestamp_to_sample_index(window.start_sec, self.sample_rate_hz)
-        expected_count = _window_sample_count(window, self.sample_rate_hz)
+    def _read_samples(
+        self,
+        start_sec: float,
+        end_sec: float,
+    ) -> NDArray[np.float32]:
+        start_sample = timestamp_to_sample_index(start_sec, self.sample_rate_hz)
+        expected_count = _range_sample_count(start_sec, end_sec, self.sample_rate_hz)
         end_sample = start_sample + expected_count
         if end_sample > self.sample_count:
             raise AudioRangeError(
@@ -156,13 +190,29 @@ class NormalizedAudioSource:
                 "partial audio is not allowed"
             )
         samples.setflags(write=False)
+        return samples
+
+    def slice_absolute(self, start_sec: float, end_sec: float) -> AudioSlice:
+        """Read a complete identity-neutral range using absolute match timestamps."""
+
+        return AudioSlice(
+            start_sec=start_sec,
+            end_sec=end_sec,
+            sample_rate_hz=self.sample_rate_hz,
+            channels=self.channels,
+            samples=self._read_samples(start_sec, end_sec),
+        )
+
+    def slice_window(self, window: AnalysisWindow) -> AudioWindow:
+        """Read exactly one planned inference window; never return partial audio."""
+
         return AudioWindow(
             segment_index=window.segment_index,
             start_sec=window.start_sec,
             end_sec=window.end_sec,
             sample_rate_hz=self.sample_rate_hz,
             channels=self.channels,
-            samples=samples,
+            samples=self._read_samples(window.start_sec, window.end_sec),
         )
 
     def close(self) -> None:
