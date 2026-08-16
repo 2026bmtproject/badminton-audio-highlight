@@ -155,6 +155,10 @@ def test_ffmpeg_normalization_runs_once_then_reuses_cache(
     assert calls[0][calls[0].index("-ac") + 1] == "1"
     assert calls[0][calls[0].index("-ar") + 1] == "16000"
     assert calls[0][calls[0].index("-f") + 1] == "f32le"
+    assert calls[0][calls[0].index("-af") + 1] == (
+        "aformat=sample_rates=16000:channel_layouts=mono,"
+        "asoftclip=type=hard:threshold=1"
+    )
 
 
 def test_missing_ffmpeg_has_clear_error(

@@ -21,7 +21,11 @@ from audio_highlight.windows import AnalysisWindow
 YAMNET_SAMPLE_RATE_HZ = 16_000
 MONO_CHANNELS = 1
 _FLOAT32_BYTES = np.dtype("<f4").itemsize
-_CACHE_FORMAT_VERSION = 1
+_CACHE_FORMAT_VERSION = 3
+_NORMALIZATION_FILTER = (
+    "aformat=sample_rates=16000:channel_layouts=mono,"
+    "asoftclip=type=hard:threshold=1"
+)
 
 
 class AudioError(RuntimeError):
@@ -288,6 +292,8 @@ class FFmpegAudioNormalizer:
             "-map",
             "0:a:0",
             "-vn",
+            "-af",
+            _NORMALIZATION_FILTER,
             "-ac",
             str(MONO_CHANNELS),
             "-ar",
