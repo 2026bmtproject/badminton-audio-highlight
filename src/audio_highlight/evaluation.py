@@ -275,7 +275,9 @@ def evaluate_cross_match(
     )
 
 
-def _metrics_dict(metrics: BinaryClassificationMetrics) -> dict[str, Any]:
+def binary_metrics_dict(metrics: BinaryClassificationMetrics) -> dict[str, Any]:
+    """Serialize binary metrics with confusion order ``[[TN, FP], [FN, TP]]``."""
+
     values = asdict(metrics)
     values["confusion_matrix"] = [
         [values.pop("tn"), values.pop("fp")],
@@ -304,7 +306,7 @@ def _summary_dict(result: EvaluationResult) -> dict[str, Any]:
                 "test_samples": fold.test_samples,
                 "converged": fold.converged,
                 "iterations": fold.iterations,
-                "metrics": _metrics_dict(fold.metrics),
+                "metrics": binary_metrics_dict(fold.metrics),
             }
             for fold in result.folds
         ],

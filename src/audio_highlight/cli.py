@@ -94,6 +94,27 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="model artifact directory (default: artifacts/models/<baseline-id>)",
     )
+    external = subparsers.add_parser(
+        "evaluate-external",
+        help="evaluate a frozen exported detector on one untouched match",
+    )
+    external.add_argument("--match-id", required=True)
+    external.add_argument(
+        "--features",
+        type=Path,
+        help="feature NPZ (default: artifacts/<match-id>/features/features.npz)",
+    )
+    external.add_argument(
+        "--model-dir",
+        type=Path,
+        default=Path("artifacts/models/yamnet_mean_lr_v1"),
+        help="directory containing model.npz and metadata.json",
+    )
+    external.add_argument(
+        "--output-dir",
+        type=Path,
+        help="output directory (default: artifacts/<match-id>/external_validation)",
+    )
     return parser
 
 
@@ -283,6 +304,84 @@ def run(argv: Sequence[str] | None = None) -> int:
         print(f"model_size_bytes={result.model_size_bytes}")
         print(f"max_probability_difference={result.max_probability_difference:.17g}")
         print(f"binary_predictions_equal={result.binary_predictions_equal}")
+        return 0
+
+    if args.command == "evaluate-external":
+        from audio_highlight.calibration import CalibrationError
+        from audio_highlight.classifier import ModelArtifactError
+        from audio_highlight.dataset import DatasetError
+        from audio_highlight.evaluation import EvaluationError
+        from audio_highlight.external_validation import (
+            ExternalValidationError,
+            evaluate_external_match,
+            write_external_validation_artifacts,
+        )
+
+        features_path = args.features or (
+            Path("artifacts") / args.match_id / "features" / "features.npz"
+        )
+        output_dir = args.output_dir or (
+            Path("artifacts") / args.match_id / "external_validation"
+        )
+        try:
+            result = evaluate_external_match(
+                features_path,
+                args.model_dir,
+                expected_match_id=args.match_id,
+            )
+            artifacts = write_external_validation_artifacts(result, output_dir)
+        except (
+            CalibrationError,
+            DatasetError,
+            EvaluationError,
+            ExternalValidationError,
+            ModelArtifactError,
+            OSError,
+        ) as exc:
+            print(f"external validation failed: {exc}")
+            return 2
+        metrics = result.metrics
+        print(f"validation_type={result.validation_type}")
+        print(f"baseline_id={result.baseline_id}")
+        print(f"match_id={result.match_id}")
+        print(f"sample_count={result.sample_count}")
+        print(f"positive_count={result.positive_count}")
+        print(f"negative_count={result.negative_count}")
+        print(f"threshold={result.threshold:g}")
+        print(f"accuracy={metrics.accuracy:.6f}")
+        print(f"precision={metrics.precision:.6f}")
+        print(f"recall={metrics.recall:.6f}")
+        print(f"f1={metrics.f1:.6f}")
+        print(
+            "roc_auc="
+            + ("undefined" if metrics.roc_auc is None else f"{metrics.roc_auc:.6f}")
+        )
+        print(
+            "average_precision="
+            + (
+                "undefined"
+                if metrics.average_precision is None
+                else f"{metrics.average_precision:.6f}"
+            )
+        )
+        print(f"brier_score={result.brier_score:.6f}")
+        print(f"log_loss={result.log_loss:.6f}")
+        print(f"ece={result.ece:.6f}")
+        print(f"observed_prevalence={result.observed_prevalence:.6f}")
+        print(f"predicted_positive_rate={result.predicted_positive_rate:.6f}")
+        print(
+            "positive_probability_median="
+            f"{result.positive_probability_summary.median:.6f}"
+        )
+        print(
+            "negative_probability_median="
+            f"{result.negative_probability_summary.median:.6f}"
+        )
+        print(f"tn={metrics.tn} fp={metrics.fp} fn={metrics.fn} tp={metrics.tp}")
+        print(f"model_sha256={result.model_sha256}")
+        print(f"feature_sha256={result.feature_sha256}")
+        print(f"predictions_csv={artifacts.predictions_csv}")
+        print(f"metrics_json={artifacts.metrics_json}")
         return 0
 
     raise AssertionError(f"unhandled command: {args.command}")
