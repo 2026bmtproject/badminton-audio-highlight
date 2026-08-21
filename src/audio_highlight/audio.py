@@ -21,9 +21,10 @@ from audio_highlight.windows import AnalysisWindow
 YAMNET_SAMPLE_RATE_HZ = 16_000
 MONO_CHANNELS = 1
 _FLOAT32_BYTES = np.dtype("<f4").itemsize
-_CACHE_FORMAT_VERSION = 3
-_NORMALIZATION_FILTER = (
-    "aformat=sample_rates=16000:channel_layouts=mono,"
+AUDIO_CACHE_FORMAT_VERSION = 3
+FFMPEG_PRECLIP_FILTER = "aformat=sample_rates=16000:channel_layouts=mono"
+FFMPEG_NORMALIZATION_FILTER = (
+    f"{FFMPEG_PRECLIP_FILTER},"
     "asoftclip=type=hard:threshold=1"
 )
 
@@ -293,7 +294,7 @@ class FFmpegAudioNormalizer:
             "0:a:0",
             "-vn",
             "-af",
-            _NORMALIZATION_FILTER,
+            FFMPEG_NORMALIZATION_FILTER,
             "-ac",
             str(MONO_CHANNELS),
             "-ar",
@@ -344,7 +345,7 @@ def _source_signature(media_path: Path) -> dict[str, object]:
         "sample_rate_hz": YAMNET_SAMPLE_RATE_HZ,
         "channels": MONO_CHANNELS,
         "sample_format": "float32le",
-        "format_version": _CACHE_FORMAT_VERSION,
+        "format_version": AUDIO_CACHE_FORMAT_VERSION,
     }
 
 

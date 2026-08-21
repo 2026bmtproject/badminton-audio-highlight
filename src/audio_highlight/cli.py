@@ -115,6 +115,53 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="output directory (default: artifacts/<match-id>/external_validation)",
     )
+    zero_shot = subparsers.add_parser(
+        "compare-zero-shot",
+        help="compare RMS and fixed YAMNet native scores with frozen LR references",
+    )
+    zero_shot.add_argument(
+        "--development-matches",
+        nargs="+",
+        default=["match_001", "match_002", "match_003", "match_004"],
+    )
+    zero_shot.add_argument("--external-match", default="match_005")
+    zero_shot.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("artifacts/baseline_comparison/zero_shot_v1"),
+    )
+    zero_shot.add_argument(
+        "--development-predictions",
+        type=Path,
+        default=Path("artifacts/cross_match/evaluation/cross_match_predictions.csv"),
+    )
+    zero_shot.add_argument("--external-predictions", type=Path)
+    clipping = subparsers.add_parser(
+        "audit-clipping",
+        help="audit canonical post-cache rails and temporary preclip overflow",
+    )
+    clipping.add_argument("--matches", nargs="+", required=True)
+    clipping.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("artifacts/audio_audit/clipping_v1"),
+    )
+    infer_match = subparsers.add_parser(
+        "infer-match",
+        help="score every canonical window with the frozen exported detector",
+    )
+    infer_match.add_argument("--match-id", required=True)
+    infer_match.add_argument("--video", type=Path)
+    infer_match.add_argument("--segments", type=Path)
+    infer_match.add_argument("--audio-cache", type=Path)
+    infer_match.add_argument("--manifest", type=Path)
+    infer_match.add_argument("--external-predictions", type=Path)
+    infer_match.add_argument(
+        "--model-dir",
+        type=Path,
+        default=Path("artifacts/models/yamnet_mean_lr_v1"),
+    )
+    infer_match.add_argument("--output-dir", type=Path)
     return parser
 
 
@@ -382,6 +429,196 @@ def run(argv: Sequence[str] | None = None) -> int:
         print(f"feature_sha256={result.feature_sha256}")
         print(f"predictions_csv={artifacts.predictions_csv}")
         print(f"metrics_json={artifacts.metrics_json}")
+        return 0
+
+    if args.command == "compare-zero-shot":
+        from audio_highlight.audio import AudioError
+        from audio_highlight.dataset import DatasetError
+        from audio_highlight.yamnet import YamNetError
+        from audio_highlight.zero_shot import (
+            METHODS,
+            ZeroShotComparisonError,
+            compare_zero_shot_baselines,
+            write_baseline_comparison_artifacts,
+        )
+
+        try:
+            result = compare_zero_shot_baselines(
+                args.development_matches,
+                args.external_match,
+                development_predictions_path=args.development_predictions,
+                external_predictions_path=args.external_predictions,
+            )
+            artifacts = write_baseline_comparison_artifacts(
+                result, args.output_dir
+            )
+        except (
+            AudioError,
+            DatasetError,
+            YamNetError,
+            ZeroShotComparisonError,
+            OSError,
+        ) as exc:
+            print(f"zero-shot comparison failed: {exc}")
+            return 2
+        development = result.metrics["development"]
+        for match_id in result.development_matches:
+            for method in METHODS:
+                metrics = development[match_id]["methods"][method]
+                print(
+                    f"scope=development match={match_id} method={method} "
+                    f"roc_auc={metrics['roc_auc']:.6f} "
+                    f"average_precision={metrics['average_precision']:.6f}"
+                )
+        for method in METHODS:
+            metrics = development["macro_mean"][method]
+            print(
+                f"scope=development_macro method={method} "
+                f"roc_auc={metrics['roc_auc']:.6f} "
+                f"average_precision={metrics['average_precision']:.6f}"
+            )
+        external = result.metrics["external"][result.external_match]["methods"]
+        for method in METHODS:
+            metrics = external[method]
+            print(
+                f"scope=external match={result.external_match} method={method} "
+                f"roc_auc={metrics['roc_auc']:.6f} "
+                f"average_precision={metrics['average_precision']:.6f}"
+            )
+        print(f"predictions_csv={artifacts.predictions_csv}")
+        print(f"metrics_json={artifacts.metrics_json}")
+        print(f"summary_csv={artifacts.summary_csv}")
+        print(f"metadata_json={artifacts.metadata_json}")
+        return 0
+
+    if args.command == "audit-clipping":
+        from audio_highlight.audio import AudioError
+        from audio_highlight.clipping_audit import (
+            ClippingAuditError,
+            run_clipping_audit,
+            write_clipping_audit_artifacts,
+        )
+        from audio_highlight.contracts import ContractError
+        from audio_highlight.labeling import LabelingError
+
+        try:
+            result = run_clipping_audit(args.matches)
+            artifacts = write_clipping_audit_artifacts(result, args.output_dir)
+        except (
+            AudioError,
+            ClippingAuditError,
+            ContractError,
+            LabelingError,
+            OSError,
+        ) as exc:
+            print(f"clipping audit failed: {exc}")
+            return 2
+        for item in result.matches:
+            whole = item.whole_match
+            windows = item.candidate_windows
+            cheer = item.labeled_stratification["cheer"]
+            print(f"match={item.match_id}")
+            print(f"rail_ratio={whole['rail_ratio']:.12g}")
+            print(
+                f"max_window_rail_ratio="
+                f"{windows['max_window_rail_ratio']:.12g}"
+            )
+            print(f"preclip_peak={whole['preclip_max_abs']:.12g}")
+            print(
+                f"windows_with_any_rail={windows['windows_with_any_rail']}/"
+                f"{windows['total_window_count']}"
+            )
+            print(
+                f"cheer_windows_with_any_rail={cheer['windows_with_any_rail']}/"
+                f"{cheer['sample_count']}"
+            )
+        print(f"summary_csv={artifacts.summary_csv}")
+        print(f"metrics_json={artifacts.metrics_json}")
+        print(f"window_audit_csv={artifacts.window_audit_csv}")
+        print(f"top_clipped_windows_csv={artifacts.top_clipped_windows_csv}")
+        print(f"metadata_json={artifacts.metadata_json}")
+        return 0
+
+    if args.command == "infer-match":
+        from audio_highlight.audio import AudioError
+        from audio_highlight.classifier import ModelArtifactError
+        from audio_highlight.full_inference import (
+            FullMatchInferenceError,
+            infer_full_match,
+            write_full_match_inference_artifacts,
+        )
+        from audio_highlight.labeling import LabelingError
+        from audio_highlight.yamnet import YamNetError
+
+        local_root = Path("local_data") / args.match_id
+        artifact_root = Path("artifacts") / args.match_id
+        default_manifest = artifact_root / "labeling" / "sample_manifest.json"
+        default_external = artifact_root / "external_validation" / "predictions.csv"
+        manifest_path = args.manifest or (
+            default_manifest if default_manifest.is_file() else None
+        )
+        external_path = args.external_predictions or (
+            default_external if default_external.is_file() else None
+        )
+        output_dir = args.output_dir or artifact_root / "inference"
+        try:
+            result = infer_full_match(
+                match_id=args.match_id,
+                video_path=args.video or local_root / "match.mp4",
+                segments_path=args.segments or local_root / "segments.json",
+                audio_cache_path=(
+                    args.audio_cache or artifact_root / "audio" / "audio.f32le"
+                ),
+                model_dir=args.model_dir,
+                manifest_path=manifest_path,
+                external_predictions_path=external_path,
+            )
+            artifacts = write_full_match_inference_artifacts(result, output_dir)
+        except (
+            AudioError,
+            ContractError,
+            FullMatchInferenceError,
+            LabelingError,
+            ModelArtifactError,
+            YamNetError,
+            OSError,
+        ) as exc:
+            print(f"full-match inference failed: {exc}")
+            return 2
+        summary = result.summary
+        probability = summary["probability"]
+        levels = summary["descriptive_threshold_counts"]
+        equivalence = summary["sampled_external_probability_equivalence"]
+        print(f"match_id={result.match_id}")
+        print(f"candidate_window_count={summary['candidate_window_count']}")
+        print(f"segment_count={summary['segment_count']}")
+        print(f"eligible_segment_count={summary['eligible_segment_count']}")
+        print(f"probability_min={probability['min']:.12g}")
+        print(f"probability_median={probability['median']:.12g}")
+        print(f"probability_max={probability['max']:.12g}")
+        for name in ("p_ge_0_5", "p_ge_0_9", "p_ge_0_99"):
+            item = levels[name]
+            print(f"{name}_count={item['count']}")
+            print(f"{name}_rate={item['rate']:.12g}")
+        print(f"sampled_windows_matched={equivalence['matched_window_count']}")
+        difference = equivalence["max_absolute_probability_difference"]
+        print(
+            "max_sampled_probability_difference="
+            + ("unavailable" if difference is None else f"{difference:.17g}")
+        )
+        print(f"inference_runtime_sec={result.inference_runtime_sec:.6f}")
+        print(f"cheer_windows_csv={artifacts.cheer_windows_csv}")
+        print(f"summary_json={artifacts.summary_json}")
+        print(f"metadata_json={artifacts.metadata_json}")
+        print(
+            "sampling_distribution_json="
+            f"{artifacts.sampling_distribution_json}"
+        )
+        print(f"sampling_windows_csv={artifacts.sampling_windows_csv}")
+        print(
+            "sampling_relative_position_plot="
+            f"{artifacts.sampling_relative_position_plot}"
+        )
         return 0
 
     raise AssertionError(f"unhandled command: {args.command}")
